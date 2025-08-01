@@ -1,19 +1,24 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
+
+// Make sure this matches your Google Cloud Console client ID exactly
+// In index.tsx
+const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || 
+  '624281363106-oopuekl0evev5i88vh64t0e0gce6amh6.apps.googleusercontent.com';
+if (!clientId) {
+  console.error('Missing GOOGLE_CLIENT_ID in environment variables');
+}
+
 root.render(
   <React.StrictMode>
-    <App />
+    <GoogleOAuthProvider clientId={clientId || ''}>
+      <App />
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();

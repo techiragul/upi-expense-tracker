@@ -4,10 +4,12 @@ const API_BASE_URL = 'http://localhost:5001';
 
 export interface Expense {
   id: number;
-  amount: number;
+  amount: number | string;
   category: string;
   description: string;
   transaction_date: string;
+  merchant?: string;
+  user_id?: string;
 }
 
 export interface ExtractedReceiptData {
@@ -16,16 +18,9 @@ export interface ExtractedReceiptData {
   merchant?: string;
   date?: string;
   status?: string;
-  [key: string]: any; // For any additional fields
+  [key: string]: any;
 }
 
-export interface ApiError {
-  message: string;
-  status?: number;
-  data?: any;
-}
-
-// Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -33,11 +28,10 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for adding auth token if needed
+// Add a request interceptor to include the Google ID token
 api.interceptors.request.use(
   (config) => {
-    // Add auth token if exists
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('google_id_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -48,19 +42,20 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Add a response interceptor to handle errors
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: AxiosError<{ message?: string }>) => {
-    const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
-    return Promise.reject({
-      message: errorMessage,
-      status: error.response?.status,
-      data: error.response?.data,
-    });
+  (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized (token expired/invalid)
+      localStorage.removeItem('google_id_token');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
   }
 );
 
+// Expense API functions
 export const getExpenses = async (): Promise<Expense[]> => {
   try {
     const response = await api.get<Expense[]>('/api/expenses');
@@ -81,31 +76,56 @@ export const addExpense = async (expense: Omit<Expense, 'id' | 'transaction_date
   }
 };
 
+export const editExpense = async (id: number, expense: Partial<Expense>): Promise<Expense> => {
+  try {
+    const response = await api.put<Expense>(`/api/expenses/${id}`, expense);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating expense:', error);
+    throw error;
+  }
+};
+
+export const deleteExpense = async (id: number): Promise<void> => {
+  try {
+    await api.delete(`/api/expenses/${id}`);
+  } catch (error) {
+    console.error('Error deleting expense:', error);
+    throw error;
+  }
+};
+
+// Receipt Upload
 export const uploadReceipt = async (file: File): Promise<ExtractedReceiptData> => {
   const formData = new FormData();
-  formData.append('file', file); // Make sure this matches your backend's expected field name
-  
+  formData.append('file', file);
+
   try {
-    const response = await api.post<{ extracted_data: ExtractedReceiptData }>(
+    const response = await api.post<ExtractedReceiptData>(
       '/api/upload-receipt',
       formData,
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-        },
+          'Authorization': `Bearer ${localStorage.getItem('google_id_token')}`
+        }
       }
     );
-    return response.data.extracted_data;
+    return response.data;
   } catch (error) {
     console.error('Error uploading receipt:', error);
     throw error;
   }
 };
 
-// Utility function for error handling
-export const handleApiError = (error: any): string => {
-  if (axios.isAxiosError(error)) {
-    return error.response?.data?.message || error.message;
+// Verify Google token
+// This is now handled by the backend, but keeping the function for reference
+export const verifyGoogleToken = async (token: string): Promise<boolean> => {
+  try {
+    await api.post('/api/verify-token', { token });
+    return true;
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return false;
   }
-  return error.message || 'An unexpected error occurred';
 };
