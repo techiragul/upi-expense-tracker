@@ -9,8 +9,7 @@ const root = ReactDOM.createRoot(
 
 // Make sure this matches your Google Cloud Console client ID exactly
 // In index.tsx
-const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || 
-  '624281363106-oopuekl0evev5i88vh64t0e0gce6amh6.apps.googleusercontent.com';
+const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 if (!clientId) {
   console.error('Missing GOOGLE_CLIENT_ID in environment variables');
 }
